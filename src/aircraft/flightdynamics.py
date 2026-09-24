@@ -32,10 +32,10 @@ def dynamic_pressure(V):
 # Flight dynamics
 # ============================================================
 
-def calculate_derivatives(V, gamma, theta, q, delta_e, T):
+def calculate_derivatives(V, gamma, theta, q, delta_e, T, w_gust=0.0):
 
-    # Angle of attack
-    alpha = theta - gamma
+    # Angle of attack (+ vertical gust w_gust [m/s], positive upwards)
+    alpha = theta - gamma + np.arctan2(w_gust, V)
 
     # Aerodynamic coefficients
     CL = lift_coefficient(alpha)

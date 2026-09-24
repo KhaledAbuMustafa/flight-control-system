@@ -11,7 +11,7 @@ from controller import pitch_controller, speed_pi_controller
 # Controller gains
 # ============================================================
 # Pitch PID (holds the trim pitch attitude)
-Kp, Kd, Ki = 3.0, 0.3, 0.5
+Kp, Kd, Ki = 1.5, 0.2, 0.6          # designed in pitch_design.py
 
 # Speed PI: plant approx. V_dot = T/m  ->  choose closed-loop wn, zeta
 wn_v, zeta_v = 0.5, 0.8
@@ -20,7 +20,7 @@ Ki_v = wn_v**2 * p.m                      # [N per m]
 
 
 def simulate(V0=50.0, V_target=60.0, theta_step_deg=0.0, t_step=5.0, t_end=120.0, dt=0.01,
-             anti_windup=True, pitch_gains=None):
+             anti_windup=True, pitch_gains=None, gust=None):
 
     Kp_th, Kd_th, Ki_th = pitch_gains if pitch_gains is not None else (Kp, Kd, Ki)
 
@@ -52,7 +52,8 @@ def simulate(V0=50.0, V_target=60.0, theta_step_deg=0.0, t_step=5.0, t_end=120.0
                                      p.T_min, p.T_max, dt, anti_windup)
 
         # Aircraft model + Euler integration
-        V_dot, gamma_dot, theta_dot, q_dot = calculate_derivatives(V, gamma, theta, q, delta_e, T)
+        V_dot, gamma_dot, theta_dot, q_dot = calculate_derivatives(
+            V, gamma, theta, q, delta_e, T, gust(t) if gust else 0.0)
         V += V_dot * dt
         gamma += gamma_dot * dt
         theta += theta_dot * dt
