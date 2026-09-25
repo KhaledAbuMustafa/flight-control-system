@@ -30,6 +30,9 @@ S = 174 * FT2_TO_M2               # Flügelfläche [m²]            ≈ 16.17
 c_bar = 4.9 * FT_TO_M             # mittlere Flügeltiefe [m]     ≈ 1.49
 b = 35.8 * FT_TO_M                # Spannweite [m]               ≈ 10.91
 I_y = 1346 * SLUGFT2_TO_KGM2      # Nickträgheitsmoment [kg·m²]  ≈ 1825
+I_x = 948 * SLUGFT2_TO_KGM2       # Rollträgheitsmoment [kg·m²]  ≈ 1285
+I_z = 1967 * SLUGFT2_TO_KGM2      # Gierträgheitsmoment [kg·m²]  ≈ 2667
+I_xz = 0.0                        # Deviationsmoment [kg·m²] (Quelle: 0, Vereinfachung)
 
 # ============================================================
 # Auftrieb  CL = CL0 + CL_alpha*α + CL_delta_e*δe + (c̄/2V)*(CL_q*q + CL_alpha_dot*α̇)
@@ -45,6 +48,7 @@ CL_alpha_dot = 1.7                # Auftrieb durch α-Änderung [1/rad]
 # ============================================================
 CD0 = 0.031                       # Nullwiderstand [-]
 k = 0.054                         # Faktor induzierter Widerstand [-]
+CD_delta_e = 0.06                 # Widerstand durch Höhenruder [1/rad] (erst im 6-DOF-Modell genutzt)
 
 # ============================================================
 # Nickmoment  Cm = Cm0 + Cm_alpha*α + Cm_delta_e*δe + (c̄/2V)*(Cm_q*q + Cm_alpha_dot*α̇)
@@ -56,8 +60,42 @@ Cm_q = -12.4                      # Nickdämpfung [1/rad]
 Cm_alpha_dot = -5.2               # Dämpfung durch α-Änderung [1/rad]
 
 # ============================================================
+# Seitenbewegung (Lateral-Directional), alle [1/rad]
+# Raten dimensionslos mit b/(2V):  p_hat = p*b/(2V),  r_hat = r*b/(2V)
+# Vorzeichen: +delta_a = rechtes Querruder runter (-> Rollen nach links)
+#             +delta_r = Seitenruder-Hinterkante nach links (-> Nase nach links)
+# ============================================================
+# Seitenkraft  CY = CY_beta*β + CY_delta_a*δa + CY_delta_r*δr + (b/2V)*(CY_p*p + CY_r*r)
+CY_beta = -0.31
+CY_p = -0.037
+CY_r = 0.21
+CY_delta_a = 0.0
+CY_delta_r = 0.187
+
+# Rollmoment  Cl = Cl_beta*β + Cl_delta_a*δa + Cl_delta_r*δr + (b/2V)*(Cl_p*p + Cl_r*r)
+Cl_beta = -0.089                  # V-Stellung / Flügelpfeilung: Schieben -> Rollen
+Cl_p = -0.47                      # Rolldämpfung
+Cl_r = 0.096                      # Gieren -> Rollen
+Cl_delta_a = -0.178               # Querruderwirksamkeit
+Cl_delta_r = 0.0147               # Seitenruder -> Rollen
+
+# Giermoment  Cn = Cn_beta*β + Cn_delta_a*δa + Cn_delta_r*δr + (b/2V)*(Cn_p*p + Cn_r*r)
+Cn_beta = 0.065                   # Richtungsstabilität ("Wetterfahne")
+Cn_p = -0.03                      # Rollen -> Gieren
+Cn_r = -0.099                     # Gierdämpfung
+Cn_delta_a = 0.053                # negatives Wendemoment (Querruder -> Gieren)
+Cn_delta_r = -0.0657              # Seitenruderwirksamkeit
+
+# ============================================================
 # Stellgrößen-Grenzen
 # ============================================================
+# Reale Ausschläge laut Quelle (für das 6-DOF-Modell):
+delta_e_min = np.deg2rad(-28.0)   # Höhenruder voll hoch (Nase hoch) [rad]
+delta_e_max_6dof = np.deg2rad(23.0)  # Höhenruder voll runter [rad]
+delta_a_max = np.deg2rad(15.0)    # Querruder ± [rad] (real 20° hoch / 15° runter, konservativ)
+delta_r_max = np.deg2rad(16.0)    # Seitenruder ± [rad]
+
+# Für die bisherigen 3-DOF-Dateien (symmetrisch, bleibt vorerst):
 delta_e_max = np.deg2rad(25.0)    # Höhenruder-Anschlag ± [rad] (real ca. +28°/-23°)
 T_min = 0.0                       # minimaler Schub [N]
 T_max = 2500.0                    # maximaler Schub [N] (Annahme, 160 PS, grob)
