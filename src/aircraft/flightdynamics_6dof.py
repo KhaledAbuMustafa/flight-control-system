@@ -70,6 +70,12 @@ def aero_forces_moments(x, c, wind_ned=(0.0, 0.0, 0.0)):
     L_roll = q_bar * p.S * p.b * Cl
     M = q_bar * p.S * p.c_bar * Cm
     N = q_bar * p.S * p.b * Cn
+
+    # Moment transfer to the actual CG: the aerodynamic forces act at the reference
+    # point, which lies dx = dh_cg * c_bar AHEAD of the CG when the CG moves aft.
+    dx = p.dh_cg * p.c_bar
+    M += -dx * Z                                     # lift ahead of CG -> nose-up moment
+    N += dx * Y                                      # side force ahead of CG -> weaker weathercock
     return np.array([X, Y, Z]), np.array([L_roll, M, N])
 
 
