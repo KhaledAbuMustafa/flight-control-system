@@ -108,6 +108,15 @@ def f(x, c, wind_ned=(0.0, 0.0, 0.0)):
                      phi_dot, theta_dot, psi_dot, xN_dot, yE_dot, h_dot])
 
 
+def rk4_step(x, c, dt, wind_ned=(0.0, 0.0, 0.0)):
+    """One Runge-Kutta 4th-order step (more accurate than Euler for the same dt)."""
+    k1 = f(x, c, wind_ned)
+    k2 = f(x + 0.5 * dt * k1, c, wind_ned)
+    k3 = f(x + 0.5 * dt * k2, c, wind_ned)
+    k4 = f(x + dt * k3, c, wind_ned)
+    return x + dt / 6.0 * (k1 + 2 * k2 + 2 * k3 + k4)
+
+
 def state_from_3dof(V, gamma, theta, q, h=1000.0):
     """Build a 6-DOF state from the longitudinal 3-DOF state (wings level, no sideslip)."""
     alpha = theta - gamma
