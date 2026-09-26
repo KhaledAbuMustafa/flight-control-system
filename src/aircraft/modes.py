@@ -101,7 +101,7 @@ def print_modes(modes):
 
 
 if __name__ == "__main__":
-    import c172_params as p
+    from aircraft import p
     from trim_6dof import trim_6dof, linearize_6dof
 
     def analyse(title, V, psi_dot=0.0, dh=0.0):

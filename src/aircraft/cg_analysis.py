@@ -8,7 +8,7 @@ Effect of the CG position on stability and trim (6-DOF model, straight and level
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import c172_params as p
+from aircraft import p
 import flightdynamics_6dof as m6
 from trim_6dof import trim_6dof, linearize_6dof
 

@@ -8,6 +8,8 @@ Für ein anderes Flugzeug nur diese Datei austauschen.
 
 import numpy as np
 
+NAME = "Cessna 172 (UIUC model)"
+
 # ============================================================
 # Umrechnungsfaktoren (Originaldaten in imperialen Einheiten)
 # ============================================================
@@ -33,6 +35,11 @@ I_y = 1346 * SLUGFT2_TO_KGM2      # Nickträgheitsmoment [kg·m²]  ≈ 1825
 I_x = 948 * SLUGFT2_TO_KGM2       # Rollträgheitsmoment [kg·m²]  ≈ 1285
 I_z = 1967 * SLUGFT2_TO_KGM2      # Gierträgheitsmoment [kg·m²]  ≈ 2667
 I_xz = 0.0                        # Deviationsmoment [kg·m²] (Quelle: 0, Vereinfachung)
+
+# Schwerpunktlage relativ zum Bezugspunkt der aerodynamischen Daten,
+# als Anteil der Flügeltiefe c_bar, positiv = nach hinten.
+# (Wird von der Stabilitätsanalyse verändert; 0 = Daten unverändert)
+dh_cg = 0.0
 
 # ============================================================
 # Auftrieb  CL = CL0 + CL_alpha*α + CL_delta_e*δe + (c̄/2V)*(CL_q*q + CL_alpha_dot*α̇)
@@ -99,5 +106,3 @@ delta_r_max = np.deg2rad(16.0)    # Seitenruder ± [rad]
 delta_e_max = np.deg2rad(25.0)    # Höhenruder-Anschlag ± [rad] (real ca. +28°/-23°)
 T_min = 0.0                       # minimaler Schub [N]
 T_max = 2500.0                    # maximaler Schub [N] (Annahme, 160 PS, grob)
-
-dh_cg = 0.0                          # Schwerpunktlage relativ zum Bezugspunkt, in c̄, + = hinten

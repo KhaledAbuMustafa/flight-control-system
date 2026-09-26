@@ -8,7 +8,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
-import c172_params as p
+from aircraft import p
 from trim_6dof import trim_6dof, linearize_6dof
 from modes import identify_modes
 from criteria import evaluate
@@ -109,7 +109,7 @@ def plot_maps(grids, V_values, dh_values, category, filename):
     handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in LEVEL_COLORS]
     labels = ["Level 1 – good", "Level 2 – acceptable", "Level 3 – controllable", "not acceptable"]
     fig.legend(handles, labels, loc="lower center", ncol=4, frameon=False)
-    fig.suptitle(f"C172 flying qualities (MIL-F-8785C, Class I, Category {category}), open loop",
+    fig.suptitle(f"{getattr(p, 'NAME', p.AIRCRAFT)} flying qualities (MIL-F-8785C, Class I, Category {category}), open loop",
                  fontsize=14)
     plt.tight_layout(rect=(0, 0.09, 1, 0.96))
     plt.savefig(filename, dpi=120)

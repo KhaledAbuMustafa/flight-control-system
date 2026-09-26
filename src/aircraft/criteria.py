@@ -11,11 +11,17 @@ Levels:
     3 = controllable              (Cooper-Harper ~6.5-9)
     4 = worse than Level 3 (not acceptable)
 
-Sources / status of the numbers:
-    phugoid, short period (Cat. B), dutch roll Level 1 (Cat. B): checked against the
-        MathWorks "Flying Quality Analysis" example (MIL-F-8785C summary)
-    remaining values (Cat. C, roll mode, spiral, dutch roll Level 2/3): standard
-        textbook values of MIL-F-8785C -> TODO: verify against the norm text
+Source: MIL-F-8785C (5 Nov 1980), all values checked against the norm text:
+    phugoid        3.2.1.2               (p. 12)
+    short period   3.2.2.1.2, Table IV   (p. 13)
+    dutch roll     3.3.1.1,   Table VI   (p. 22)
+    roll mode      3.3.1.2,   Table VII  (p. 23)
+    spiral         3.3.1.3,   Table VIII (p. 23)
+
+Not implemented (simplifications):
+    - Table VI: extra zeta*wn requirement when wn^2*|phi/beta| > 20 (rad/s)^2
+    - 3.3.1.4 coupled roll-spiral oscillation (not present in our model)
+    - short-period frequency / CAP criteria (3.2.2.1.1, figures 1-3)
 """
 import numpy as np
 
@@ -120,7 +126,7 @@ def evaluate(modes, category="B"):
 
 
 if __name__ == "__main__":
-    import c172_params as p
+    from aircraft import p
     from trim_6dof import trim_6dof, linearize_6dof
     from modes import identify_modes
 

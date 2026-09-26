@@ -11,7 +11,7 @@ Aerodynamics (stage 1 = same terms as the 3-DOF model, plus the full lateral set
     CY, Cl, Cn = full lateral-directional model
 """
 import numpy as np
-import c172_params as p
+from aircraft import p
 
 # State indices (makes the code readable)
 U, V_, W, P, Q, R, PHI, THETA, PSI, XN, YE, H = range(12)
