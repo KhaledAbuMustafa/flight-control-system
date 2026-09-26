@@ -99,3 +99,5 @@ delta_r_max = np.deg2rad(16.0)    # Seitenruder ± [rad]
 delta_e_max = np.deg2rad(25.0)    # Höhenruder-Anschlag ± [rad] (real ca. +28°/-23°)
 T_min = 0.0                       # minimaler Schub [N]
 T_max = 2500.0                    # maximaler Schub [N] (Annahme, 160 PS, grob)
+
+dh_cg = 0.0                          # Schwerpunktlage relativ zum Bezugspunkt, in c̄, + = hinten
