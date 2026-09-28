@@ -7,8 +7,10 @@ Input  c = [delta_e, delta_a, delta_r, T]                      (4)
 Aerodynamics (stage 1 = same terms as the 3-DOF model, plus the full lateral set):
     CL = CL0 + CL_alpha*alpha                      (CL_delta_e, CL_q, CL_alpha_dot follow later)
     CD = CD0 + k*CL^2
-    Cm = Cm0 + Cm_alpha*alpha + Cm_delta_e*de + Cm_q*q_hat
+    Cm = Cm0 + Cm_alpha*alpha + Cm_delta_e*de + Cm_q*q_hat + Cm_alpha_dot*alpha_dot_hat
     CY, Cl, Cn = full lateral-directional model
+
+INCLUDE_ALPHA_DOT = True  -> Cm_alpha_dot term active (set False to reproduce the 3-DOF model)
 """
 import numpy as np
 from aircraft import p
@@ -16,6 +18,8 @@ from aircraft import p
 # State indices (makes the code readable)
 U, V_, W, P, Q, R, PHI, THETA, PSI, XN, YE, H = range(12)
 DE, DA, DR, TH = range(4)
+
+INCLUDE_ALPHA_DOT = True      # pitch damping from the rate of change of alpha (Cm_alpha_dot)
 
 
 def air_data(x, wind_ned=(0.0, 0.0, 0.0)):
@@ -41,8 +45,8 @@ def rotation_body_to_ned(phi, theta, psi):
     ])
 
 
-def aero_forces_moments(x, c, wind_ned=(0.0, 0.0, 0.0)):
-    """Aerodynamic forces (body axes) and moments [N, N·m]."""
+def aero_forces_moments(x, c, wind_ned=(0.0, 0.0, 0.0), alpha_dot=0.0):
+    """Aerodynamic forces (body axes) and moments [N, N·m]. alpha_dot in rad/s."""
     V, alpha, beta = air_data(x, wind_ned)
     p_, q_, r_ = x[P], x[Q], x[R]
     de, da, dr = c[DE], c[DA], c[DR]
@@ -50,12 +54,14 @@ def aero_forces_moments(x, c, wind_ned=(0.0, 0.0, 0.0)):
     q_bar = 0.5 * p.rho * V**2
     p_hat = p_ * p.b / (2 * V)                       # rates made dimensionless
     q_hat = q_ * p.c_bar / (2 * V)
+    alpha_dot_hat = alpha_dot * p.c_bar / (2 * V)    # made dimensionless like q
     r_hat = r_ * p.b / (2 * V)
 
     # Longitudinal coefficients (identical to the 3-DOF model)
     CL = p.CL0 + p.CL_alpha * alpha
     CD = p.CD0 + p.k * CL**2
-    Cm = p.Cm0 + p.Cm_alpha * alpha + p.Cm_delta_e * de + p.Cm_q * q_hat
+    Cm = (p.Cm0 + p.Cm_alpha * alpha + p.Cm_delta_e * de + p.Cm_q * q_hat
+          + p.Cm_alpha_dot * alpha_dot_hat)
 
     # Lateral-directional coefficients
     CY = p.CY_beta * beta + p.CY_delta_a * da + p.CY_delta_r * dr + p.CY_p * p_hat + p.CY_r * r_hat
@@ -82,7 +88,7 @@ def aero_forces_moments(x, c, wind_ned=(0.0, 0.0, 0.0)):
 def f(x, c, wind_ned=(0.0, 0.0, 0.0)):
     """x_dot = f(x, c): the four equation blocks."""
     u, v, w, p_, q_, r_, phi, theta, psi = x[:9]
-    (X, Y, Z), (L_roll, M, N) = aero_forces_moments(x, c, wind_ned)
+    (X, Y, Z), _ = aero_forces_moments(x, c, wind_ned)   # forces do not depend on alpha_dot
     X += c[TH]                                       # thrust along the body x-axis
 
     g, m = p.g, p.m
@@ -93,6 +99,12 @@ def f(x, c, wind_ned=(0.0, 0.0, 0.0)):
     u_dot = r_ * v - q_ * w + X / m - g * sth
     v_dot = p_ * w - r_ * u + Y / m + g * sph * cth
     w_dot = q_ * u - p_ * v + Z / m + g * cph * cth
+
+    # alpha_dot from the translational accelerations: alpha = atan(w/u)
+    #   -> alpha_dot = (u*w_dot - w*u_dot) / (u^2 + w^2)
+    # then the moments are evaluated with this alpha_dot (Cm_alpha_dot term)
+    alpha_dot = (u * w_dot - w * u_dot) / (u**2 + w**2) if INCLUDE_ALPHA_DOT else 0.0
+    _, (L_roll, M, N) = aero_forces_moments(x, c, wind_ned, alpha_dot)
 
     # Block 2: moments (p_dot and r_dot are coupled through I_xz -> 2x2 system)
     Ix, Iy, Iz, Ixz = p.I_x, p.I_y, p.I_z, p.I_xz

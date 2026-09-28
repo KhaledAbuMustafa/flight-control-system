@@ -8,6 +8,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import flightdynamics_6dof as m6
+m6.INCLUDE_ALPHA_DOT = False     # the 3-DOF model has no Cm_alpha_dot -> compare like with like
 from flightdynamics import calculate_derivatives
 from trim import trim
 from linearize import linearize

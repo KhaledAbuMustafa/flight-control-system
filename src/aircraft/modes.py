@@ -32,6 +32,22 @@ def _mode_info(lam):
     return info
 
 
+def _overdamped_info(real_roots):
+    """
+    Short period that has split into two real roots (zeta > 1).
+    Stable: report the equivalent 2nd-order values  wn = sqrt(l1*l2), zeta = -(l1+l2)/(2*wn).
+    Unstable: report the divergent root.
+    """
+    critical = max(real_roots, key=lambda l: l.real)
+    if critical.real >= 0 or len(real_roots) < 2:
+        return _mode_info(critical)
+    l1, l2 = sorted(real_roots, key=lambda l: l.real)[-2:]    # the two slowest-decaying roots
+    wn = np.sqrt(l1.real * l2.real)
+    info = _mode_info(critical)
+    info.update({"wn": wn, "zeta": -(l1.real + l2.real) / (2 * wn), "overdamped": True})
+    return info
+
+
 def identify_modes(A, V):
     """
     Returns a dict  {mode name: info}  with the keys
@@ -62,7 +78,7 @@ def identify_modes(A, V):
     elif len(osc) == 1:                               # one pair turned into two real poles
         if abs(osc[0]) < 1.0:                         # the remaining pair is slow -> phugoid
             modes["phugoid"] = _mode_info(osc[0])
-            modes["short_period"] = _mode_info(max(real, key=lambda l: l.real))  # the critical one
+            modes["short_period"] = _overdamped_info(real)                        # two real roots
         else:
             modes["short_period"] = _mode_info(osc[0])
             modes["phugoid"] = _mode_info(max(real, key=lambda l: l.real))

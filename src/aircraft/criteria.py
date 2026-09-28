@@ -62,8 +62,11 @@ def _t_double(m):
 
 
 def level_short_period(m, cat):
-    if not _is_oscillatory(m):                    # aperiodic
-        return 4 if m["eigenvalue"].real > 0 else 3
+    if m["eigenvalue"].real > 0:                  # divergent (CG behind neutral point)
+        return 4
+    if not _is_oscillatory(m) and not m.get("overdamped"):
+        return 3                                  # aperiodic without equivalent zeta
+    # oscillatory, or overdamped with equivalent zeta (> 1) -> check the zeta band
     for lvl in (1, 2, 3):
         lo, hi = SHORT_PERIOD_ZETA[cat][lvl]
         if lo <= m["zeta"] <= hi:
