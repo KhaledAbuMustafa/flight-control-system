@@ -22,6 +22,7 @@ class LongitudinalAutopilot:
     Kh, Ki_h, K_vs = 0.006, 0.0003, 0.012        # [rad/m], [rad/(m·s)], [rad/(m/s)]  (tuned)
     I_h_band = 10.0                              # integrate altitude error only within ±10 m
     theta_cmd_max = np.deg2rad(8.0)              # pitch command limit (relative to trim)
+    theta_rate_max = np.deg2rad(3.0)             # pitch command rate limit [rad/s] (comfort)
     # Speed loop: PI with gains from the desired closed-loop dynamics (see Phase 3)
     wn_v, zeta_v = 0.5, 0.8
 
@@ -31,6 +32,7 @@ class LongitudinalAutopilot:
         self.Kp_v = 2 * self.zeta_v * self.wn_v * p.m
         self.Ki_v = self.wn_v**2 * p.m
         self.I_th = self.I_h = self.I_v = 0.0
+        self.theta_set = self.theta_trim            # rate-limited pitch command (memory)
 
     def step(self, x, h_set, V_set, dt):
         V, alpha, _ = m6.air_data(x)
@@ -44,7 +46,11 @@ class LongitudinalAutopilot:
         # anti-windup: integrate only near the target altitude and when not limited
         if theta_cmd_sat == theta_cmd and abs(e_h) < self.I_h_band:
             self.I_h += e_h * dt
-        theta_set = self.theta_trim + theta_cmd_sat
+        # rate limiter: the pitch command may change by at most theta_rate_max per second
+        target = self.theta_trim + theta_cmd_sat
+        max_step = self.theta_rate_max * dt
+        self.theta_set += np.clip(target - self.theta_set, -max_step, max_step)
+        theta_set = self.theta_set
 
         # ---- inner loop: pitch attitude -> elevator ----
         e_th = theta_set - theta
