@@ -34,7 +34,9 @@ class LongitudinalAutopilot:
         self.I_th = self.I_h = self.I_v = 0.0
         self.theta_set = self.theta_trim            # rate-limited pitch command (memory)
 
-    def step(self, x, h_set, V_set, dt):
+    use_feedforward = False
+
+    def step(self, x, h_set, V_set, dt, h_dot_ref=0.0):
         V, alpha, _ = m6.air_data(x)
         h, theta, q = x[m6.H], x[m6.THETA], x[m6.Q]
         # climb rate from the kinematics (cheaper than evaluating the full model)
@@ -43,7 +45,10 @@ class LongitudinalAutopilot:
 
         # ---- outer loop: altitude -> pitch command ----
         e_h = h_set - h
-        theta_cmd = self.Kh * e_h + self.Ki_h * self.I_h - self.K_vs * h_dot
+        # feedforward: planned climb -> flight path angle gamma_ref (the nose must rise by that much)
+        gamma_ref = np.arcsin(np.clip(h_dot_ref / V_set, -0.5, 0.5)) if self.use_feedforward else 0.0
+        hd_ref = h_dot_ref if self.use_feedforward else 0.0
+        theta_cmd = gamma_ref + self.Kh * e_h + self.Ki_h * self.I_h - self.K_vs * (h_dot - hd_ref)
         theta_cmd_sat = np.clip(theta_cmd, -self.theta_cmd_max, self.theta_cmd_max)
         # anti-windup: integrate only near the target altitude and when not limited
         if theta_cmd_sat == theta_cmd and abs(e_h) < self.I_h_band:
@@ -63,7 +68,8 @@ class LongitudinalAutopilot:
 
         # ---- speed loop: airspeed -> thrust ----
         e_v = V_set - V
-        T_cmd = self.c_trim[m6.TH] + self.Kp_v * e_v + self.Ki_v * self.I_v
+        T_ff = p.m * p.g * np.sin(gamma_ref)       # feedforward: extra thrust for climbing
+        T_cmd = self.c_trim[m6.TH] + T_ff + self.Kp_v * e_v + self.Ki_v * self.I_v
         T = np.clip(T_cmd, p.T_min, p.T_max)
         if T == T_cmd or np.sign(e_v) != np.sign(T_cmd - T):
             self.I_v += e_v * dt
