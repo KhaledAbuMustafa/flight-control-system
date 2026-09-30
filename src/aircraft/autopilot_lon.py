@@ -37,7 +37,9 @@ class LongitudinalAutopilot:
     def step(self, x, h_set, V_set, dt):
         V, alpha, _ = m6.air_data(x)
         h, theta, q = x[m6.H], x[m6.THETA], x[m6.Q]
-        h_dot = m6.f(x, self.c_trim)[m6.H]          # climb rate (kinematic, independent of c)
+        # climb rate from the kinematics (cheaper than evaluating the full model)
+        u, v, w, phi = x[m6.U], x[m6.V_], x[m6.W], x[m6.PHI]
+        h_dot = u * np.sin(theta) - v * np.sin(phi) * np.cos(theta) - w * np.cos(phi) * np.cos(theta)
 
         # ---- outer loop: altitude -> pitch command ----
         e_h = h_set - h

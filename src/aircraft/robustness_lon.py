@@ -8,6 +8,8 @@ Important:   the LQI schedule is designed at the REFERENCE CG only. A shifted CG
              error the controller does not know about -> this is a real robustness test.
 """
 import os
+import time
+from multiprocessing import Pool, cpu_count
 import numpy as np
 import matplotlib.pyplot as plt
 import aircraft
@@ -19,7 +21,7 @@ from autopilot_lon_lqi import build_schedule, LQIAutopilotLon, interp, LON, INPU
 
 SPEEDS = [30.0, 50.0, 65.0]
 CGS = {"fwd": -0.25, "ref": 0.0, "aft": 0.10}
-DT, T_END = 0.01, 40.0
+DT, T_END = 0.02, 40.0          # RK4 is accurate enough with 20 ms steps
 
 
 def gust(t, w_max=5.0, t0=5.0, dur=3.0):
@@ -54,22 +56,36 @@ def run(controller, test, V0, h0=1000.0):
     return {"h": np.max(np.abs(h_err)), "V": np.max(np.abs(V_err)), "diverged": diverged}
 
 
+_SCHEDULES = {}                     # per-process cache: one LQI schedule per aircraft
+
+
+def task(args):
+    """One simulation. Runs in a separate process -> everything it needs is passed in."""
+    name, cg_name, dh, V, test, ctrl = args
+    aircraft.load(name)
+    if name not in _SCHEDULES:
+        p.dh_cg = 0.0
+        _SCHEDULES[name] = build_schedule()      # designed at the reference CG
+    schedule = _SCHEDULES[name]
+    p.dh_cg = dh                                 # the "real" aircraft has a shifted CG
+    if ctrl == "PID":
+        factory = lambda x, c: LongitudinalAutopilot(x, c)
+    else:
+        factory = lambda x, c: make_lqi(schedule, x, c)
+    result = run(factory, test, V)
+    p.dh_cg = 0.0
+    return (name, cg_name, V, test, ctrl), result
+
+
 if __name__ == "__main__":
     os.makedirs("results", exist_ok=True)
-    results = {}
-    for name in ["c172", "c182"]:
-        aircraft.load(name)
-        schedule = build_schedule()                 # designed at the reference CG
-        for cg_name, dh in CGS.items():
-            p.dh_cg = dh
-            for V in SPEEDS:
-                for test in ["gust", "climb"]:
-                    results[(name, cg_name, V, test, "PID")] = run(
-                        lambda x, c: LongitudinalAutopilot(x, c), test, V)
-                    results[(name, cg_name, V, test, "LQI")] = run(
-                        lambda x, c: make_lqi(schedule, x, c), test, V)
-            p.dh_cg = 0.0
-    aircraft.load(aircraft.DEFAULT)
+    jobs = [(name, cg_name, dh, V, test, ctrl)
+            for name in ["c172", "c182"] for cg_name, dh in CGS.items()
+            for V in SPEEDS for test in ["gust", "climb"] for ctrl in ["PID", "LQI"]]
+    t0 = time.time()
+    with Pool(cpu_count()) as pool:                   # one worker per CPU core
+        results = dict(pool.map(task, jobs))
+    print(f"{len(jobs)} simulations on {cpu_count()} cores in {time.time() - t0:.1f} s")
 
     # ---------- table ----------
     for test, label in [("gust", "A) gust: max |Δh| [m] / max |ΔV| [m/s]"),
@@ -108,4 +124,3 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("results/robustness_lon.png", dpi=120)
     plt.show()
-    
