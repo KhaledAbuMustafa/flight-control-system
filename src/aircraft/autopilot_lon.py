@@ -36,6 +36,10 @@ class LongitudinalAutopilot:
         self.theta_set = self.theta_trim            # rate-limited pitch command (memory)
 
     use_feedforward = False
+    # gain scheduling: control surfaces get weaker at low speed (force ~ V²) -> scale the
+    # elevator gains with (V_ref/V)², the gains were tuned at V_ref
+    schedule_gains = True
+    V_ref, sched_exp = 50.0, 2.0
     turn_ff = None                               # optional TurnFeedforward (Phase 6, step 4)
 
     def step(self, x, h_set, V_set, dt, h_dot_ref=0.0):
@@ -66,8 +70,9 @@ class LongitudinalAutopilot:
 
         # ---- inner loop: pitch attitude -> elevator ----
         e_th = theta_set - theta
-        de_cmd = (self.c_trim[m6.DE] + tf["dde"] - self.Kp_th * e_th - self.Ki_th * self.I_th
-                  + self.Kd_th * (q - tf["q"]))      # damp only the q that does NOT belong to the turn
+        s = (self.V_ref / V) ** self.sched_exp if self.schedule_gains else 1.0
+        de_cmd = (self.c_trim[m6.DE] + tf["dde"]
+                  + s * (-self.Kp_th * e_th - self.Ki_th * self.I_th + self.Kd_th * (q - tf["q"])))      # damp only the q that does NOT belong to the turn
         de = np.clip(de_cmd, p.delta_e_min, p.delta_e_max_6dof)
         if de == de_cmd:
             self.I_th += e_th * dt

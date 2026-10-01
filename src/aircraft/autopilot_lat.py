@@ -25,6 +25,9 @@ class LateralAutopilot:
     Kr, Kb = 0.5, 1.0                            # [rad/(rad/s)], [rad/rad]  (Kb from the sim sweep)
     phi_rate_max = np.deg2rad(10.0)              # bank command rate limit [rad/s]
     phi_max = np.deg2rad(30.0)                   # bank command limit
+    # gain scheduling: aileron/rudder effect ~ V² -> scale all gains with (V_ref/V)²
+    schedule_gains = True
+    V_ref, sched_exp = 50.0, 2.0
 
     def __init__(self, x_trim, c_trim):
         self.c_trim = c_trim.copy()
@@ -42,15 +45,16 @@ class LateralAutopilot:
 
         # ---- bank loop -> aileron ----
         e_phi = self.phi_set - phi
-        da_cmd = (self.c_trim[m6.DA] - self.Kp_phi * e_phi - self.Ki_phi * self.I_phi
-                  + self.Kd_phi * p_)
+        s = (self.V_ref / V) ** self.sched_exp if self.schedule_gains else 1.0
+        da_cmd = (self.c_trim[m6.DA]
+                  + s * (-self.Kp_phi * e_phi - self.Ki_phi * self.I_phi + self.Kd_phi * p_))
         da = np.clip(da_cmd, -p.delta_a_max, p.delta_a_max)
         if da == da_cmd:                         # anti-windup: integrate only when not saturated
             self.I_phi += e_phi * dt
 
         # ---- yaw damper + turn coordination -> rudder ----
         r_ref = p.g * np.sin(phi) / V            # yaw rate that belongs to a coordinated turn
-        dr_cmd = self.c_trim[m6.DR] + self.Kr * (r - r_ref) - self.Kb * beta
+        dr_cmd = self.c_trim[m6.DR] + s * (self.Kr * (r - r_ref) - self.Kb * beta)
         dr = np.clip(dr_cmd, -p.delta_r_max, p.delta_r_max)
         return da, dr
 
@@ -127,3 +131,4 @@ if __name__ == "__main__":
                  "(longitudinal autopilot holds h and V)")
     plt.tight_layout()
     plt.savefig("results/autopilot_lat_pid.png", dpi=120)
+    plt.show()
