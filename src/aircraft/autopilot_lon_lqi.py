@@ -68,6 +68,7 @@ class LQIAutopilotLon:
         self.z = np.zeros(2)
 
     use_feedforward = False
+    turn_ff = None                                     # optional TurnFeedforward (Phase 6, step 4)
 
     def step(self, x, h_set, V_set, dt, h_dot_ref=0.0):
         V, _, _ = m6.air_data(x)
@@ -82,6 +83,12 @@ class LQIAutopilotLon:
             gamma_ref = np.arcsin(np.clip(h_dot_ref / V_set, -0.5, 0.5))
             x0[3] += gamma_ref
             c0[m6.TH] += p.m * p.g * np.sin(gamma_ref)
+        if self.turn_ff:
+            # level turn: reference state and inputs from the turn trim at the measured bank
+            tf = self.turn_ff(x[m6.PHI])
+            x0 += [tf["du"], tf["dw"], tf["q"], tf["dtheta"], 0.0]
+            c0[m6.DE] += tf["dde"]
+            c0[m6.TH] += tf["dT"]
         u_cmd = c0[INPUTS] - Kx @ (x[LON] - x0) - Kz @ self.z
         lo = np.array([p.delta_e_min, p.T_min])
         hi = np.array([p.delta_e_max_6dof, p.T_max])

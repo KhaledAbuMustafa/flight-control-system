@@ -13,6 +13,7 @@ import aircraft
 from aircraft import p
 import flightdynamics_6dof as m6
 from trim_6dof import trim_6dof
+from turn_ff import ZERO
 
 
 class LongitudinalAutopilot:
@@ -35,6 +36,7 @@ class LongitudinalAutopilot:
         self.theta_set = self.theta_trim            # rate-limited pitch command (memory)
 
     use_feedforward = False
+    turn_ff = None                               # optional TurnFeedforward (Phase 6, step 4)
 
     def step(self, x, h_set, V_set, dt, h_dot_ref=0.0):
         V, alpha, _ = m6.air_data(x)
@@ -42,6 +44,9 @@ class LongitudinalAutopilot:
         # climb rate from the kinematics (cheaper than evaluating the full model)
         u, v, w, phi = x[m6.U], x[m6.V_], x[m6.W], x[m6.PHI]
         h_dot = u * np.sin(theta) - v * np.sin(phi) * np.cos(theta) - w * np.cos(phi) * np.cos(theta)
+
+        # turn feedforward: extra pitch, elevator, thrust and the pitch rate of a level turn
+        tf = self.turn_ff(x[m6.PHI]) if self.turn_ff else ZERO
 
         # ---- outer loop: altitude -> pitch command ----
         e_h = h_set - h
@@ -54,14 +59,15 @@ class LongitudinalAutopilot:
         if theta_cmd_sat == theta_cmd and abs(e_h) < self.I_h_band:
             self.I_h += e_h * dt
         # rate limiter: the pitch command may change by at most theta_rate_max per second
-        target = self.theta_trim + theta_cmd_sat
+        target = self.theta_trim + theta_cmd_sat + tf["dtheta"]
         max_step = self.theta_rate_max * dt
         self.theta_set += np.clip(target - self.theta_set, -max_step, max_step)
         theta_set = self.theta_set
 
         # ---- inner loop: pitch attitude -> elevator ----
         e_th = theta_set - theta
-        de_cmd = self.c_trim[m6.DE] - self.Kp_th * e_th - self.Ki_th * self.I_th + self.Kd_th * q
+        de_cmd = (self.c_trim[m6.DE] + tf["dde"] - self.Kp_th * e_th - self.Ki_th * self.I_th
+                  + self.Kd_th * (q - tf["q"]))      # damp only the q that does NOT belong to the turn
         de = np.clip(de_cmd, p.delta_e_min, p.delta_e_max_6dof)
         if de == de_cmd:
             self.I_th += e_th * dt
@@ -69,7 +75,7 @@ class LongitudinalAutopilot:
         # ---- speed loop: airspeed -> thrust ----
         e_v = V_set - V
         T_ff = p.m * p.g * np.sin(gamma_ref)       # feedforward: extra thrust for climbing
-        T_cmd = self.c_trim[m6.TH] + T_ff + self.Kp_v * e_v + self.Ki_v * self.I_v
+        T_cmd = self.c_trim[m6.TH] + T_ff + tf["dT"] + self.Kp_v * e_v + self.Ki_v * self.I_v
         T = np.clip(T_cmd, p.T_min, p.T_max)
         if T == T_cmd or np.sign(e_v) != np.sign(T_cmd - T):
             self.I_v += e_v * dt
